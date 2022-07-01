@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Demo</title>
+        <style>
+            body {
+                max-width: 1024px;
+                padding-left: 32px;
+                padding-right: 32px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .msg-error {
+                color: red;
+                word-break: break-all;
+            }
+            .sty-loader::after {
+                content: "...";
+                animation: animate-loader 1s infinite;
+            }
+            #jChangecolorLst {
+                list-style: none;
+            }
+            #jChangecolorLst li {
+                margin-top: 11px;
+                margin-bottom: 11px;
+            }
+
+            @keyframes animate-loader {
+                0% {
+                    content: "";
+                }
+                25% {
+                    content: ".";
+                }
+                50% {
+                    content: "..";
+                }
+                75% {
+                    content: "...";
+                }
+                100% {
+                    content: "....";
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h5>
+                <button id="jConnectBtn" type="button">Connect Wallet</button>
+            </h5>
+            <p id="jAccountTxt"></p>
+            <p id="jContractTxt"></p>
+        </header>
+        <section>
+            <h5>
+                <button id="jFreeMintBtn" type="button">Free Mint (once per address)</button>
+            </h5>
+            <p id="jFreeMintTxt" class="msg-error"></p>
+            <p>
+                <img id="jFreeMintImg" width="256" height="256" />
+            </p>
+            <h5>
+                Address:
+                <input type="text" id="jMintPaidVal" style="min-width:350px;" />
+                <button id="jRandomAddressBtn" type="button">Random</button>
+                <button id="jMintPaidBtn" type="button">MintPaid</button>
+            </h5>
+            <p id="jMintPaidTxt" class="msg-error"></p>
+            <p>
+                <img id="jMintPaidImg" width="256" height="256" />
+            </p>
+        </section>
+        <section>
+            <h5>
+                TokenID:
+                <input type="number" id="jTokenIdVal" pattern="[0-9]*" />
+                <button id="jTokenIdBtn" type="button">Query</button>
+            </h5>
+            <p id="jTokenIdTxt" class="msg-error"></p>
+            <div style="float:left;margin-right:20px;">
+                <img id="jTokenIdImg" width="256" height="256" />
+            </div>
+            <ol id="jChangecolorLst" style="display:none;">
+                <li>bgCard - 00 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>body - 01 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>neck - 02 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>ears - 03 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>face - 04 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>hair - 05 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>text - 06 - #<span></span> : #<input type="text" placeholder="new Hex-Color" /></li>
+                <li>
+                    <button id="jChangeColorBtn" type="button">changeColor</button>
+                    <span id="jChangeColorTxt" class="msg-error"></span>
+                </li>
+            </ol>
+            <p id="jChangeThemeRow" style="display:none;">
+                Lucky number:
+                <input type="number" id="jLuckyNumber" pattern="[0-9]*" />
+                <button id="jChangeThemeBtn" type="button">changeTheme</button>
+                <span id="jChangeThemeTxt" class="msg-error"></span>
+            </p>
+        </section>
+        <script src="https://cdn.ethers.io/scripts/ethers-v4.min.js"></script>
+        <script>
+            let userAccount, nftContract;
+            const ContractAbis = [
+                "function tokenURI(uint256) view returns (string)",
+                "function mint()",
+                "function mintPaid(address) payable",
+                "function changeTheme(uint256, uint256) payable",
+                "function changeColor(uint256, uint32[]) payable",
+            ];
+
+            document.getElementById("jConnectBtn").addEventListener("click", function() {
+                const txtAccount = document.getElementById("jAccountTxt");
+                const txtContract = document.getElementById("jContractTxt");
+                txtAccount.textContent = txtContract.textContent = "";
+                if (!window.ethereum) {
+                    txtAccount.textContent = "The ethereum Non Existent";
+                } else {
+                    window.ethereum
+                        .request({ method: "eth_requestAccounts" })
+                        .then(([account]) => {
+                            this.disabled = true;
+                            txtAccount.textContent = `Account: ${userAccount = account}`;
+                            txtContract.textContent = `Contract: ${nftContract = {
+                                "0x1": "0xebEe1CB73d67De4C8A6261EE3F8951989fD8A4fa",
+                                "0x4": "0x86Ae2C2A07cCf3bcCc47ba1EcA4FAAEaBe424Cf4",
+                            }[window.ethereum.chainId]}`;
+                        });
+                }
+            });
+
+            document.getElementById("jFreeMintBtn").addEventListener("click", function() {
+                const txtElem = document.getElementById("jFreeMintTxt");
+                const imgElem = document.getElementById("jFreeMintImg");
+                txtElem.textContent = "";
+                if (!userAccount) {
+                    txtElem.textContent = "Please Connect Wallet!";
+                } else if (!nftContract) {
+                    txtElem.textContent = "The Network Non-Support!";
+                } else {
+                    this.disabled = true;
+                    this.classList.add("sty-loader");
+
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const NftContract = new ethers.Contract(nftContract, ContractAbis, provider);
+                    NftContract.connect(provider.getSigner()).mint()
+                    .then(result => result.wait())
+                    .then(result => NftContract.tokenURI(result.logs[0].topics[3]))
+                    .then(result => {
+                        const json = JSON.parse(result.slice("data:application/json,".length));
+                        imgElem.src = `data:image/svg+xml;base64,${window.btoa(json.image.slice("data:image/svg+xml,".length))}`;
+                    })
+                    .catch(reason => { txtElem.textContent = reason.message + "" })
+                    .finally(() => {
+                        this.disabled = false;
+                        this.classList.remove("sty-loader");
+                    });
+                }
+            });
+
+            document.getElementById("jRandomAddressBtn").addEventListener("click", function() {
+                document.getElementById("jMintPaidVal").value = ethers.Wallet.createRandom().address;
+            });
+            document.getElementById("jMintPaidBtn").addEventListener("click", function() {
+                const txtElem = document.getElementById("jMintPaidTxt");
+                const imgElem = document.getElementById("jMintPaidImg");
+                txtElem.textContent = imgElem.src = "";
+                if (!userAccount) {
+                    txtElem.textContent = "Please Connect Wallet!";
+                } else if (!nftContract) {
+                    txtElem.textContent = "The Network Non-Support!";
+                } else {
+                    this.disabled = true;
+                    this.classList.add("sty-loader");
+
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const NftContract = new ethers.Contract(nftContract, ContractAbis, provider);
+                    provider.getGasPrice()
+                    .then(gasPrice => Math.ceil(ethers.utils.formatUnits(gasPrice, 9)))
+                    .then(gasPrice =>
+                        NftContract.connect(provider.getSigner())
+                        .mintPaid(
+                            document.getElementById("jMintPaidVal").value,
+                            {
+                                value: ethers.utils.parseUnits((21_000 * gasPrice + ""), 9),
+                                gasPrice: ethers.utils.parseUnits(gasPrice + "", 9),
+                            }
+                        )
+                    )
+                    .then(result => result.wait())
+                    .then(result => NftContract.tokenURI(result.logs[0].topics[3]))
+                    .then(result => {
+                        const json = JSON.parse(result.slice("data:application/json,".length));
+                        imgElem.src = `data:image/svg+xml;base64,${window.btoa(json.image.slice("data:image/svg+xml,".length))}`;
+                    })
+                    .catch(reason => { txtElem.textContent = reason.message + "" })
+                    .finally(() => {
+                        this.disabled = false;
+                        this.classList.remove("sty-loader");
+                    });
+                }
+            });
+
+            document.getElementById("jTokenIdBtn").addEventListener("click", function() {
+                const txtElem = document.getElementById("jTokenIdTxt");
+                const imgElem = document.getElementById("jTokenIdImg");
+                const rowChangeTheme = document.getElementById("jChangeThemeRow");
+                const lstChangeColor = document.getElementById("jChangecolorLst");
+                txtElem.textContent = imgElem.src = "";
+                rowChangeTheme.style.display = lstChangeColor.style.display = "none";
+                if (!userAccount) {
+                    txtElem.textContent = "Please Connect Wallet!";
+                } else if (!nftContract) {
+                    txtElem.textContent = "The Network Non-Support!";
+                } else {
+                    this.disabled = true;
+                    this.classList.add("sty-loader");
+
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const NftContract = new ethers.Contract(nftContract, ContractAbis, provider);
+                    NftContract.tokenURI(document.getElementById("jTokenIdVal").value).then(result => {
+                        renderTokenImage(result);
+                        rowChangeTheme.style.display = lstChangeColor.style.display = "";
+                    }).catch(reason => {
+                        txtElem.textContent = reason.message + "";
+                    }).finally(() => {
+                        this.disabled = false;
+                        this.classList.remove("sty-loader");
+                    });
+                }
+            });
+            function renderTokenImage(result) {
+                const json = JSON.parse(result.slice("data:application/json,".length));
+                const svgText = json.image.slice("data:image/svg+xml,".length);
+                document.getElementById("jTokenIdImg").src = `data:image/svg+xml;base64,${window.btoa(svgText)}`;
+
+                const spans = document.getElementById("jChangecolorLst").getElementsByTagName("span");
+                const colors = svgText.match(/fill='#[0-9A-F]{6}'/g);
+                const mapIndex = [0,1,6,2,7,3,4,5];
+                colors.forEach((color, index) => {
+                    if (index == 4) return;
+                    spans[mapIndex[index]].textContent = color.slice(7,13);
+                });
+            }
+
+            document.getElementById("jChangeThemeBtn").addEventListener("click", function() {
+                const tokenId = document.getElementById("jTokenIdVal").value;
+                const txtElem = document.getElementById("jChangeThemeTxt");
+                txtElem.textContent = "";
+                this.disabled = true;
+                this.classList.add("sty-loader");
+
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const NftContract = new ethers.Contract(nftContract, ContractAbis, provider);
+                NftContract.connect(provider.getSigner()).changeTheme(
+                    tokenId,
+                    document.getElementById("jLuckyNumber").value,
+                    { value: ethers.utils.parseEther("0.01") }
+                )
+                .then(result => result.wait())
+                .then(() => NftContract.tokenURI(tokenId))
+                .then(result => renderTokenImage(result))
+                .catch(reason => {
+                    txtElem.textContent = reason.message + "";
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.classList.remove("sty-loader");
+                });
+            });
+
+            document.getElementById("jChangeColorBtn").addEventListener("click", function() {
+                const tokenId = document.getElementById("jTokenIdVal").value;
+                const txtElem = document.getElementById("jChangeColorTxt");
+                const imgElem = document.getElementById("jTokenIdImg");
+                const lstChangeColor = document.getElementById("jChangecolorLst");
+                txtElem.textContent = "";
+
+                const colors = [];
+                [...lstChangeColor.getElementsByTagName("input")].forEach((input, index) => {
+                    const hexColor = input.value.trim();
+                    if (hexColor) {
+                        colors.push(`0x0${index}${hexColor.padStart(6,"0")}`);
+                    }
+                });
+                if (!colors.length) return;
+
+                this.disabled = true;
+                this.classList.add("sty-loader");
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const NftContract = new ethers.Contract(nftContract, ContractAbis, provider);
+                NftContract.connect(provider.getSigner()).changeColor(
+                    tokenId,
+                    colors,
+                    { value: ethers.utils.parseEther(colors.length * 0.1 + "") }
+                )
+                .then(result => result.wait())
+                .then(() => NftContract.tokenURI(tokenId))
+                .then(result => {
+                    const json = JSON.parse(result.slice("data:application/json,".length));
+                    imgElem.src = `data:image/svg+xml;base64,${window.btoa(json.image.slice("data:image/svg+xml,".length))}`;
+                })
+                .catch(reason => {
+                    txtElem.textContent = reason.message + "";
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.classList.remove("sty-loader");
+                });
+            });
+        </script>
+    </body>
+</html>
